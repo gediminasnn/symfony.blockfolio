@@ -1,0 +1,72 @@
+# This file is the entry point to configure your own services.
+# Files in the packages/ subdirectory configure your dependencies.
+
+# Put parameters here that don't need to change on each machine where the app is deployed
+# https://symfony.com/doc/current/best_practices.html#use-parameters-for-application-configuration
+parameters:
+    exchange_rate.cache_ttl: 2
+    exchange_rate.supported_currencies: ['bitcoin', 'ethereum', 'iota']
+
+services:
+    # default configuration for services in *this* file
+    _defaults:
+        autowire: true      # Automatically injects dependencies in your services.
+        autoconfigure: true # Automatically registers your services as commands, event subscribers, etc.
+
+    # makes classes in src/ available to be used as services
+    # this creates a service per class whose id is the fully-qualified class name
+    App\:
+        resource: '../src/'
+        exclude:
+            - '../src/DependencyInjection/'
+            - '../src/Entity/'
+            - '../src/Kernel.php'
+
+    # add more service definitions when explicit configuration is needed
+    # please note that last definitions always *replace* previous ones
+    App\Service\Asset\CreateServiceInterface:
+        class: App\Service\Asset\CreateService
+
+    App\Service\Asset\ListServiceInterface:
+        class: App\Service\Asset\ListService
+
+    App\Service\Asset\ShowServiceInterface:
+        class: App\Service\Asset\ShowService
+
+    App\Service\Asset\UpdateServiceInterface:
+        class: App\Service\Asset\UpdateService
+
+    App\Service\Asset\DeleteServiceInterface:
+        class: App\Service\Asset\DeleteService
+
+    App\Service\Asset\CalculateValuesServiceInterface:
+        class: App\Service\Asset\CalculateValuesService
+    
+    App\Provider\ExchangeRateProviderInterface:
+        alias: App\Provider\ExchangeRateProvider
+
+    App\Service\ExchangeRate\ListServiceInterface:
+        alias: App\Service\ExchangeRate\ListService
+
+    App\Provider\ExchangeRateProvider:
+        arguments:
+            $client: '@http_client'
+            $coingeckoApiToken: '%env(COINGECKO_API_TOKEN)%'
+            $supportedCurrencies: '%exchange_rate.supported_currencies%'
+
+    App\Service\ExchangeRate\ListService:
+        arguments:
+            $cacheExchangeRate: '@cache.app'
+            $provider: '@App\Provider\ExchangeRateProviderInterface'
+            $cacheTtl: '%exchange_rate.cache_ttl%'
+
+    App\Service\Asset\CalculateValuesService:
+        arguments:
+            $listService: '@App\Service\Asset\ListServiceInterface'
+            $exchangeRateListService: '@App\Service\ExchangeRate\ListServiceInterface'
+
+when@test:
+    services:
+        App\Service\ExchangeRate\ListServiceInterface:
+            class: App\Tests\Mock\MockedExchangeRateListService
+            public: true
